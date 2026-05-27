@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شاشة طلبات البركة (الكاشير)</title>
+    
+    <!-- Google Fonts: Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Firebase (V8 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .order-card { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* شاشة تفعيل الصوت */
+        #audio-unlock {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- شاشة تفعيل الصوت (ضرورية لأن المتصفحات تمنع تشغيل الصوت تلقائياً) -->
+    <div id="audio-unlock">
+        <div class="bg-white p-8 rounded-2xl text-center max-w-sm mx-4">
+            <i class="ph ph-bell-ringing text-6xl text-red-600 mb-4 animate-bounce"></i>
+            <h2 class="text-2xl font-bold mb-2">نظام استلام الطلبات</h2>
+            <p class="text-gray-600 mb-6">يرجى الضغط على الزر لتفعيل تنبيهات الصوت للطلبات الجديدة.</p>
+            <button onclick="startSystem()" class="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition">بدء العمل</button>
+        </div>
+    </div>
+
+    <!-- ملف الصوت للتنبيه -->
+    <audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg" preload="auto"></audio>
+
+    <!-- Header -->
+    <header class="bg-red-700 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-black">مطعم البركة - لوحة الكاشير</h1>
+            <span id="connection-status" class="bg-yellow-400 text-red-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse">جاري الاتصال...</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="bg-red-800 px-4 py-2 rounded-lg font-bold">
+                الطلبات النشطة: <span id="active-count" class="text-yellow-400 text-xl">0</span>
+            </div>
+            <button onclick="testPrint()" class="bg-white text-red-700 p-2 rounded-lg hover:bg-gray-100" title="تجربة الطباعة"><i class="ph ph-printer text-xl"></i></button>
+        </div>
+    </header>
+
+    <!-- Orders Grid -->
+    <main class="flex-1 overflow-x-auto p-6 bg-gray-100">
+        <div id="orders-container" class="flex gap-6 h-full items-start">
+            <!-- الطلبات ستظهر هنا أوتوماتيك -->
+        </div>
+    </main>
+
+    <script>
+        // إعدادات Firebase الخاصة بمطعم البركة
+        const firebaseConfig = {
+            apiKey: "AIzaSyCT0yusx3CtOFyAmDWTvXKSS4IKy1d-gU4",
+            authDomain: "baraka-a.firebaseapp.com",
+            databaseURL: "https://baraka-a-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "baraka-a",
+            storageBucket: "baraka-a.firebasestorage.app",
+            messagingSenderId: "729831140727",
+            appId: "1:729831140727:web:2d291397177b9b6f9c8572",
+            measurementId: "G-2D6MDJ2W2H"
+        };
+
+        // تهيئة Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const ordersRef = db.ref('active_orders');
+
+        let isSystemStarted = false;
+        let isInitialLoad = true;
+        let activeOrdersCount = 0;
+
+        // دالة بدء النظام (تفعيل الصوت)
+        function startSystem() {
+            document.getElementById('audio-unlock').style.display = 'none';
+            const sound = document.getElementById('alert-sound');
+            sound.volume = 0;
+            sound.play().then(() => {
+                sound.pause();
+                sound.currentTime = 0;
+                sound.volume = 1;
+            }).catch(e => console.log(e));
+            
+            isSystemStarted = true;
+            listenForOrders();
+        }
+
+        // الاستماع للطلبات من Firebase في الوقت الفعلي
+        function listenForOrders() {
+            document.getElementById('connection-status').innerText = 'متصل (Live)';
+            document.getElementById('connection-status').className = 'bg-green-400 text-green-900 text-xs font-bold px-2 py-1 rounded-full';
+
+            ordersRef.on('child_added', (snapshot) => {
+                const orderId = snapshot.key;
+                const orderData = snapshot.val();
+                
+                renderOrder(orderId, orderData);
+                
+                // تشغيل التنبيه فقط للطلبات الجديدة وليس وقت تحميل الصفحة لأول مرة
+                if (!isInitialLoad && isSystemStarted) {
+                    playSound();
+                }
+            });
+
+            ordersRef.on('child_removed', (snapshot) => {
+                const orderId = snapshot.key;
+                const element = document.getElementById(`order-${orderId}`);
+                if (element) {
+                    element.remove();
+                    updateCount(-1);
+                }
+            });
+
+            setTimeout(() => { isInitialLoad = false; }, 2000);
+        }
+
+        function playSound() {
+            const sound = document.getElementById('alert-sound');
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("الصوت محظور من المتصفح", e));
+        }
+
+        function updateCount(change) {
+            activeOrdersCount += change;
+            document.getElementById('active-count').innerText = activeOrdersCount;
+        }
+
+        // رسم كارت الطلب على الشاشة
+        function renderOrder(orderId, order) {
+            updateCount(1);
+            const container = document.getElementById('orders-container');
+            
+            let itemsHtml = '';
+            order.items.forEach(item => {
+                itemsHtml += `
+                    <div class="flex justify-between border-b border-gray-100 py-2 text-sm">
+                        <div class="flex-1">
+                            <span class="font-bold text-gray-800">${item.qty}x ${item.name}</span>
+                            ${item.details ? `<div class="text-xs text-gray-500 mt-0.5">${item.details}</div>` : ''}
+                        </div>
+                        <div class="font-bold text-red-600 mr-4">${item.price.toFixed(3)}</div>
+                    </div>`;
+            });
+
+            // تحديد شكل الكارت بناءً على التوصيل أو الاستلام
+            let typeBadge = '';
+            let locationHtml = '';
+            
+            if(order.orderType === 'delivery') {
+                typeBadge = '<span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded"><i class="ph ph-moped"></i> توصيل</span>';
+                locationHtml = `<div class="bg-blue-50 p-2 rounded text-blue-900 mt-2 text-xs border border-blue-200">
+                    <p class="font-bold mb-1"><i class="ph ph-map-pin"></i> عنوان التوصيل:</p>
+                    <p>${order.address}</p>
+                </div>`;
+            } else {
+                typeBadge = '<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded"><i class="ph ph-storefront"></i> استلام من الفرع</span>';
+                locationHtml = `<p><i class="ph ph-storefront text-gray-400"></i> ${order.branch}</p>`;
+            }
+
+            const cardHtml = `
+                <div id="order-${orderId}" class="order-card min-w-[320px] w-[320px] bg-white rounded-2xl shadow-lg border-t-8 ${order.orderType === 'delivery' ? 'border-blue-600' : 'border-red-600'} flex flex-col max-h-full">
+                    <div class="p-4 bg-gray-50 border-b border-gray-200 rounded-t-xl flex justify-between items-start">
+                        <div>
+                            <h3 class="font-black text-lg text-gray-800">#${orderId.substring(orderId.length - 4)}</h3>
+                            <p class="text-xs text-gray-500">${order.date}</p>
+                        </div>
+                        ${typeBadge}
+                    </div>
+                    
+                    <div class="p-4 border-b border-gray-100 text-sm space-y-1">
+                        <p><i class="ph ph-user text-gray-400"></i> <span class="font-bold">${order.customerName}</span></p>
+                        <p><i class="ph ph-phone text-gray-400"></i> ${order.customerPhone}</p>
+                        <p><i class="ph ph-clock text-gray-400"></i> الموعد: <span class="font-bold ${order.orderType === 'delivery' ? 'text-blue-600' : 'text-red-600'}">${order.pickupTime}</span></p>
+                        ${locationHtml}
+                        ${order.notes ? `<div class="bg-yellow-50 p-2 rounded text-yellow-800 mt-2 text-xs border border-yellow-200"><i class="ph ph-warning-circle"></i> ملاحظات: ${order.notes}</div>` : ''}
+                    </div>
+
+                    <div class="p-4 flex-1 overflow-y-auto hide-scrollbar bg-white">
+                        ${itemsHtml}
+                    </div>
+
+                    <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-xl space-y-3">
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="font-bold text-gray-600">الإجمالي:</span>
+                            <span class="font-black text-red-700">${parseFloat(order.total).toFixed(3)} ر.ع</span>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick='printOrder(${JSON.stringify(order)})' class="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg font-bold flex justify-center items-center gap-2 transition">
+                                <i class="ph ph-printer text-xl"></i> طباعة
+                            </button>
+                            <button onclick="markAsCompleted('${orderId}')" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold flex justify-center items-center gap-2 transition">
+                                <i class="ph ph-check text-xl"></i> ${order.orderType === 'delivery' ? 'خرج للتوصيل' : 'تم التسليم'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // إضافة الطلب في البداية
+            container.insertAdjacentHTML('afterbegin', cardHtml);
+        }
+
+        // دالة الطباعة وتجهيز الفاتورة
+        function printOrder(order) {
+            const printWindow = window.open('', '_blank', 'width=400,height=600');
+            
+            let itemsHtml = '';
+            order.items.forEach(i => {
+                itemsHtml += `
+                    <tr style="border-bottom: 1px dashed #000;">
+                        <td style="padding: 5px 0;">${i.name}<br>
+                            ${i.details ? `<small>${i.details}</small>` : ''}
+                        </td>
+                        <td style="text-align: center;">${i.qty}</td>
+                        <td style="text-align: left;">${i.price.toFixed(3)}</td>
+                    </tr>
+                `;
+            });
+
+            const orderTypeLabel = order.orderType === 'delivery' ? 'طلب توصيل (Delivery)' : 'طلب استلام من الفرع (Pickup)';
+            const locationDetails = order.orderType === 'delivery' 
+                ? `<b>عنوان التوصيل:</b><br> ${order.address}<br>` 
+                : `<b>فرع الاستلام:</b> ${order.branch}<br>`;
+
+            printWindow.document.write(`
+                <html lang="ar" dir="rtl">
+                <head>
+                    <title>طباعة الفاتورة</title>
+                    <style>
+                        body { font-family: 'Cairo', sans-serif; width: 80mm; margin: 0 auto; padding: 10px; font-size: 14px; color: #000; }
+                        .text-center { text-align: center; }
+                        .bold { font-weight: bold; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        th, td { font-size: 13px; padding-top: 3px; padding-bottom: 3px; }
+                        .total { font-size: 16px; margin-top: 15px; border-top: 2px double #000; padding-top: 5px; }
+                        .badge { display: inline-block; padding: 3px 8px; border: 1px solid #000; border-radius: 5px; margin-top: 5px; font-weight: bold; }
+                        @media print { @page { margin: 0; } body { margin: 0.5cm; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="text-center">
+                        <h3 style="margin:0; font-size: 18px;">مطعم البركة</h3>
+                        <div class="badge">${orderTypeLabel}</div>
+                        <p style="font-size:11px; margin:8px 0;">${order.date}</p>
+                    </div>
+                    <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+                    <div style="font-size: 13px; line-height: 1.6;">
+                        <b>العميل:</b> ${order.customerName}<br>
+                        <b>الهاتف:</b> ${order.customerPhone}<br>
+                        ${locationDetails}
+                        <b>الوقت المطلوب:</b> ${order.pickupTime}<br>
+                        ${order.notes ? `<b>ملاحظات إضافية:</b> ${order.notes}<br>` : ''}
+                    </div>
+                    <table style="margin-top: 15px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #000;">
+                                <th style="text-align: right;">الصنف</th>
+                                <th style="width: 40px; text-align: center;">العدد</th>
+                                <th style="text-align: left;">السعر</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml}
+                        </tbody>
+                    </table>
+                    <div class="total bold">
+                        <span>الإجمالي:</span>
+                        <span style="float: left;">${parseFloat(order.total).toFixed(3)} ر.ع</span>
+                    </div>
+                    <div class="text-center" style="margin-top: 20px; font-size: 11px;">شكراً لطلبكم ❤️</div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() { window.close(); }, 500);
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        // إزالة الطلب بعد التسليم
+        function markAsCompleted(orderId) {
+            ordersRef.child(orderId).remove()
+                .catch(e => alert("حدث خطأ: " + e));
+        }
+
+        // اختبار الطباعة
+        function testPrint() {
+            printOrder({
+                date: new Date().toLocaleString('ar-EG'),
+                customerName: "تجربة طابعة", customerPhone: "00000000", orderType: "delivery", address: "الشارع: الرئيسي، مبنى: 15، الدور: 2", pickupTime: "الآن", notes: "بدون شطة", total: 0,
+                items: [{name: "وجبة تجربة", qty: 1, price: 0, details: "تجربة النظام"}]
+            });
+        }
+    </script>
+</body>
+</html>
