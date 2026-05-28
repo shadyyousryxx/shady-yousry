@@ -3,318 +3,1131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>شاشة طلبات البركة (الكاشير)</title>
-    
-    <!-- Google Fonts: Cairo -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS -->
+    <title>مطعم البركة – لوحة الكاشير</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <!-- Firebase (V8 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
-        body { font-family: 'Cairo', sans-serif; background-color: #f3f4f6; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .order-card { animation: slideIn 0.3s ease-out forwards; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* شاشة تفعيل الصوت */
-        #audio-unlock {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        :root {
+            --bg: #0d0f14;
+            --surface: #161920;
+            --surface2: #1e2230;
+            --border: #2a2f42;
+            --accent: #e63946;
+            --accent2: #f4a261;
+            --blue: #457b9d;
+            --green: #2d6a4f;
+            --green-light: #40916c;
+            --text: #e8eaf0;
+            --text-muted: #8891aa;
+            --gold: #ffd166;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+        /* ===== UNLOCK SCREEN ===== */
+        #audio-unlock {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .unlock-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--accent);
+            border-radius: 20px;
+            padding: 48px 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .unlock-icon {
+            width: 80px; height: 80px;
+            background: rgba(230,57,70,0.15);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px;
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); }
+            50% { box-shadow: 0 0 0 20px rgba(230,57,70,0); }
+        }
+        .unlock-btn {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .2s;
+            margin-top: 24px;
+        }
+        .unlock-btn:hover { background: #c1121f; transform: translateY(-1px); }
+
+        /* ===== HEADER ===== */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        .logo-area { display: flex; align-items: center; gap: 14px; }
+        .logo-dot {
+            width: 10px; height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent);
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+        .logo-text { font-size: 20px; font-weight: 900; color: var(--text); letter-spacing: -0.5px; }
+        .logo-sub { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+        .status-badge {
+            font-size: 11px; font-weight: 700;
+            padding: 4px 12px; border-radius: 99px;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .status-connecting { background: rgba(255,209,102,0.15); color: var(--gold); border: 1px solid rgba(255,209,102,0.3); }
+        .status-live { background: rgba(64,145,108,0.15); color: #52b788; border: 1px solid rgba(64,145,108,0.3); }
+
+        .header-stats { display: flex; align-items: center; gap: 12px; }
+        .stat-pill {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            text-align: center;
+            min-width: 80px;
+        }
+        .stat-num { font-size: 22px; font-weight: 900; line-height: 1; }
+        .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+        .header-time {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 18px;
+            font-size: 20px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: var(--gold);
+        }
+
+        .icon-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all .2s;
+        }
+        .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ===== COLUMNS ===== */
+        .kanban {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .col:last-child { border-left: none; }
+
+        .col-header {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .col-title-area { display: flex; align-items: center; gap: 10px; }
+        .col-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .col-title { font-size: 15px; font-weight: 800; }
+        .col-badge {
+            font-size: 12px; font-weight: 700;
+            padding: 3px 10px; border-radius: 99px;
+        }
+
+        /* Preparing col */
+        .col-preparing .col-header { background: rgba(230,57,70,0.05); }
+        .col-preparing .col-icon { background: rgba(230,57,70,0.15); color: var(--accent); }
+        .col-preparing .col-badge { background: rgba(230,57,70,0.15); color: var(--accent); }
+
+        /* With driver / ready col */
+        .col-driver .col-header { background: rgba(69,123,157,0.05); }
+        .col-driver .col-icon { background: rgba(69,123,157,0.15); color: #74b3ce; }
+        .col-driver .col-badge { background: rgba(69,123,157,0.15); color: #74b3ce; }
+
+        /* Completed col */
+        .col-done .col-header { background: rgba(45,106,79,0.05); }
+        .col-done .col-icon { background: rgba(45,106,79,0.15); color: #52b788; }
+        .col-done .col-badge { background: rgba(45,106,79,0.15); color: #52b788; }
+
+        .col-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* ===== ORDER CARD ===== */
+        .order-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            animation: cardIn .35s cubic-bezier(.34,1.56,.64,1) forwards;
+            position: relative;
+        }
+        @keyframes cardIn {
+            from { opacity:0; transform: translateY(16px) scale(0.97); }
+            to { opacity:1; transform: translateY(0) scale(1); }
+        }
+
+        .card-top-bar {
+            height: 4px;
+        }
+        .bar-delivery { background: linear-gradient(90deg, #457b9d, #74b3ce); }
+        .bar-pickup { background: linear-gradient(90deg, #e63946, #f4a261); }
+        .bar-done { background: linear-gradient(90deg, #2d6a4f, #52b788); }
+
+        .card-header {
+            padding: 12px 16px 10px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .order-id { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+        .order-time-badge {
+            font-size: 11px; font-weight: 600;
+            color: var(--text-muted);
+            background: var(--surface2);
+            padding: 3px 8px; border-radius: 6px;
+        }
+        .order-type-badge {
+            font-size: 11px; font-weight: 700;
+            padding: 4px 10px; border-radius: 8px;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .badge-delivery { background: rgba(69,123,157,0.2); color: #74b3ce; border: 1px solid rgba(69,123,157,0.3); }
+        .badge-pickup { background: rgba(230,57,70,0.15); color: #f87171; border: 1px solid rgba(230,57,70,0.3); }
+
+        .card-info {
+            padding: 10px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .info-row { display: flex; align-items: flex-start; gap: 8px; color: var(--text-muted); }
+        .info-row i { margin-top: 1px; flex-shrink: 0; font-size: 14px; }
+        .info-val { color: var(--text); font-weight: 600; }
+        .info-val.highlight { color: var(--gold); }
+
+        .address-box {
+            background: rgba(69,123,157,0.1);
+            border: 1px solid rgba(69,123,157,0.2);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: #74b3ce;
+            line-height: 1.5;
+        }
+        .notes-box {
+            background: rgba(244,162,97,0.1);
+            border: 1px solid rgba(244,162,97,0.2);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: var(--accent2);
+        }
+
+        .card-items {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .item-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .item-row:last-child { border-bottom: none; }
+        .item-qty {
+            background: var(--accent);
+            color: white;
+            font-weight: 800;
+            font-size: 11px;
+            width: 22px; height: 22px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .item-name { flex: 1; padding: 0 8px; font-weight: 600; }
+        .item-details { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .item-price { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+
+        .card-footer {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .total-area { display: flex; flex-direction: column; }
+        .total-label { font-size: 10px; color: var(--text-muted); }
+        .total-amount { font-size: 18px; font-weight: 900; color: var(--gold); letter-spacing: -0.5px; }
+
+        .card-actions { display: flex; gap: 8px; }
+        .act-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all .2s;
+        }
+        .btn-print {
+            background: var(--surface2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-print:hover { color: var(--text); border-color: #4a5568; }
+        .btn-next-delivery {
+            background: rgba(69,123,157,0.2);
+            color: #74b3ce;
+            border: 1px solid rgba(69,123,157,0.4);
+        }
+        .btn-next-delivery:hover { background: rgba(69,123,157,0.35); }
+        .btn-next-pickup {
+            background: rgba(230,57,70,0.15);
+            color: #f87171;
+            border: 1px solid rgba(230,57,70,0.3);
+        }
+        .btn-next-pickup:hover { background: rgba(230,57,70,0.25); }
+        .btn-done {
+            background: rgba(45,106,79,0.25);
+            color: #52b788;
+            border: 1px solid rgba(45,106,79,0.5);
+        }
+        .btn-done:hover { background: rgba(45,106,79,0.4); }
+        .btn-delete {
+            background: transparent;
+            color: #555e76;
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+        }
+        .btn-delete:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* Elapsed timer */
+        .elapsed-timer {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer-ok { background: rgba(45,106,79,0.2); color: #52b788; }
+        .timer-warn { background: rgba(244,162,97,0.2); color: var(--accent2); }
+        .timer-late { background: rgba(230,57,70,0.2); color: var(--accent); animation: flash .8s infinite; }
+        @keyframes flash { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+
+        /* Done card overlay */
+        .order-card.done-card { opacity: .8; }
+        .order-card.done-card:hover { opacity: 1; }
+
+        /* Empty state */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            padding: 40px 20px;
+        }
+        .empty-state i { font-size: 36px; opacity: .3; }
+        .empty-state p { opacity: .5; }
+
+        /* Clear done btn */
+        .clear-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .clear-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Sound Settings Modal */
+        #sound-modal {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #sound-modal.open { display: flex; }
+        .modal-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--gold);
+            border-radius: 20px;
+            padding: 32px;
+            width: 420px;
+            max-width: 95vw;
+        }
+        .modal-title {
+            font-size: 18px; font-weight: 900;
+            margin-bottom: 24px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .modal-field { margin-bottom: 20px; }
+        .modal-label {
+            font-size: 12px; font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .modal-select, .modal-range {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+        .modal-select:focus { border-color: var(--gold); }
+        .range-row { display: flex; align-items: center; gap: 12px; }
+        .range-val {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-weight: 800;
+            font-size: 14px;
+            color: var(--gold);
+            min-width: 52px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            flex: 1; height: 6px;
+            background: var(--border);
+            border-radius: 99px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--gold);
+            cursor: pointer;
+        }
+        .modal-actions { display: flex; gap: 10px; margin-top: 28px; }
+        .modal-btn {
+            flex: 1; padding: 11px;
+            border-radius: 10px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer; border: none;
+            transition: all .2s;
+        }
+        .btn-test-sound {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-test-sound:hover { border-color: var(--gold); color: var(--gold); }
+        .btn-save-sound {
+            background: var(--gold);
+            color: #0d0f14;
+        }
+        .btn-save-sound:hover { background: #f5c842; }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 999;
+            transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+            white-space: nowrap;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+<body>
 
-    <!-- شاشة تفعيل الصوت (ضرورية لأن المتصفحات تمنع تشغيل الصوت تلقائياً) -->
-    <div id="audio-unlock">
-        <div class="bg-white p-8 rounded-2xl text-center max-w-sm mx-4">
-            <i class="ph ph-bell-ringing text-6xl text-red-600 mb-4 animate-bounce"></i>
-            <h2 class="text-2xl font-bold mb-2">نظام استلام الطلبات</h2>
-            <p class="text-gray-600 mb-6">يرجى الضغط على الزر لتفعيل تنبيهات الصوت للطلبات الجديدة.</p>
-            <button onclick="startSystem()" class="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition">بدء العمل</button>
+<!-- Audio unlock -->
+<div id="audio-unlock">
+    <div class="unlock-card">
+        <div class="unlock-icon">
+            <i class="ph ph-storefront" style="font-size:36px; color: var(--accent);"></i>
+        </div>
+        <h2 style="font-size:22px; font-weight:900; margin-bottom:8px;">مطعم البركة</h2>
+        <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">لوحة إدارة الطلبات · الكاشير<br>اضغط بدء لتشغيل تنبيهات الصوت</p>
+        <button class="unlock-btn" onclick="startSystem()">
+            <i class="ph ph-play"></i> بدء العمل
+        </button>
+    </div>
+</div>
+
+<audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg" preload="auto"></audio>
+<div id="toast"></div>
+
+<!-- Sound Settings Modal -->
+<div id="sound-modal">
+    <div class="modal-card">
+        <div class="modal-title">
+            <i class="ph ph-speaker-high" style="color:var(--gold);font-size:22px;"></i>
+            إعدادات صوت التنبيه
+        </div>
+
+        <div class="modal-field">
+            <label class="modal-label">نوع الصوت</label>
+            <select class="modal-select" id="sound-select">
+                <option value="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg">🚀 Spaceship Alarm (افتراضي)</option>
+                <option value="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg">⏰ Alarm Clock</option>
+                <option value="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">🔔 Beep Short</option>
+                <option value="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg">📟 Digital Watch</option>
+                <option value="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg">🎈 Boing</option>
+                <option value="https://actions.google.com/sounds/v1/cartoon/pop.ogg">💥 Pop</option>
+                <option value="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg">🔔 Clang</option>
+                <option value="https://actions.google.com/sounds/v1/animals/cat_meow_2.ogg">🐱 Cat Meow</option>
+                <option value="custom">🎵 رابط مخصص...</option>
+            </select>
+            <input type="text" id="custom-url" placeholder="ضع رابط ملف .ogg أو .mp3 هنا"
+                style="display:none; margin-top:8px; width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px 14px; font-family:'Cairo',sans-serif; font-size:13px; outline:none;">
+        </div>
+
+        <div class="modal-field">
+            <label class="modal-label">مدة التشغيل (ثواني) — 0 يعني كامل الصوت</label>
+            <div class="range-row">
+                <input type="range" id="duration-range" min="0" max="30" step="1" value="0">
+                <div class="range-val" id="duration-val">كامل</div>
+            </div>
+        </div>
+
+        <div class="modal-field">
+            <label class="modal-label">مستوى الصوت</label>
+            <div class="range-row">
+                <input type="range" id="volume-range" min="0" max="100" step="5" value="100">
+                <div class="range-val" id="volume-val">100%</div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="modal-btn btn-test-sound" onclick="testSoundSettings()">
+                <i class="ph ph-play"></i> تجربة
+            </button>
+            <button class="modal-btn btn-save-sound" onclick="saveSoundSettings()">
+                <i class="ph ph-check"></i> حفظ
+            </button>
+            <button class="modal-btn" onclick="closeSoundModal()"
+                style="background:transparent;border:1px solid var(--border);color:var(--text-muted); flex:0.5;">
+                إلغاء
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Header -->
+<header>
+    <div class="logo-area">
+        <div class="logo-dot"></div>
+        <div>
+            <div class="logo-text">مطعم البركة</div>
+            <div class="logo-sub">لوحة الكاشير</div>
+        </div>
+        <span id="connection-status" class="status-badge status-connecting">
+            <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span>
+            جاري الاتصال
+        </span>
+    </div>
+
+    <div class="header-stats">
+        <div class="stat-pill">
+            <div class="stat-num" id="count-preparing" style="color:var(--accent)">0</div>
+            <div class="stat-label">قيد التحضير</div>
+        </div>
+        <div class="stat-pill">
+            <div class="stat-num" id="count-driver" style="color:#74b3ce">0</div>
+            <div class="stat-label">مع الطيار / جاهز</div>
+        </div>
+        <div class="stat-pill">
+            <div class="stat-num" id="count-done" style="color:#52b788">0</div>
+            <div class="stat-label">تم التسليم</div>
+        </div>
+        <div class="header-time" id="clock">00:00:00</div>
+        <button class="icon-btn" onclick="testPrint()" title="تجربة طباعة"><i class="ph ph-printer"></i></button>
+        <button class="icon-btn" onclick="openSoundModal()" title="إعدادات الصوت"><i class="ph ph-speaker-high"></i></button>
+    </div>
+</header>
+
+<!-- Kanban board -->
+<div class="kanban">
+
+    <!-- Col 1: Preparing -->
+    <div class="col col-preparing">
+        <div class="col-header">
+            <div class="col-title-area">
+                <div class="col-icon"><i class="ph ph-fire-simple"></i></div>
+                <div>
+                    <div class="col-title">قيد التحضير</div>
+                </div>
+            </div>
+            <span class="col-badge" id="badge-preparing">0</span>
+        </div>
+        <div class="col-body" id="col-preparing">
+            <div class="empty-state" id="empty-preparing">
+                <i class="ph ph-coffee"></i>
+                <p>لا توجد طلبات جديدة</p>
+            </div>
         </div>
     </div>
 
-    <!-- ملف الصوت للتنبيه -->
-    <audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg" preload="auto"></audio>
-
-    <!-- Header -->
-    <header class="bg-red-700 text-white p-4 shadow-md flex justify-between items-center z-10">
-        <div class="flex items-center gap-3">
-            <h1 class="text-2xl font-black">مطعم البركة - لوحة الكاشير</h1>
-            <span id="connection-status" class="bg-yellow-400 text-red-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse">جاري الاتصال...</span>
-        </div>
-        <div class="flex items-center gap-4">
-            <div class="bg-red-800 px-4 py-2 rounded-lg font-bold">
-                الطلبات النشطة: <span id="active-count" class="text-yellow-400 text-xl">0</span>
+    <!-- Col 2: With Driver / Ready for pickup -->
+    <div class="col col-driver">
+        <div class="col-header">
+            <div class="col-title-area">
+                <div class="col-icon"><i class="ph ph-moped"></i></div>
+                <div>
+                    <div class="col-title">مع الطيار / جاهز للاستلام</div>
+                </div>
             </div>
-            <button onclick="testPrint()" class="bg-white text-red-700 p-2 rounded-lg hover:bg-gray-100" title="تجربة الطباعة"><i class="ph ph-printer text-xl"></i></button>
+            <span class="col-badge" id="badge-driver">0</span>
         </div>
-    </header>
-
-    <!-- Orders Grid -->
-    <main class="flex-1 overflow-x-auto p-6 bg-gray-100">
-        <div id="orders-container" class="flex gap-6 h-full items-start">
-            <!-- الطلبات ستظهر هنا أوتوماتيك -->
+        <div class="col-body" id="col-driver">
+            <div class="empty-state" id="empty-driver">
+                <i class="ph ph-moped"></i>
+                <p>لا يوجد طلبات خارجة بعد</p>
+            </div>
         </div>
-    </main>
+    </div>
 
-    <script>
-        // إعدادات Firebase الخاصة بمطعم البركة
-        const firebaseConfig = {
-            apiKey: "AIzaSyCT0yusx3CtOFyAmDWTvXKSS4IKy1d-gU4",
-            authDomain: "baraka-a.firebaseapp.com",
-            databaseURL: "https://baraka-a-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "baraka-a",
-            storageBucket: "baraka-a.firebasestorage.app",
-            messagingSenderId: "729831140727",
-            appId: "1:729831140727:web:2d291397177b9b6f9c8572",
-            measurementId: "G-2D6MDJ2W2H"
-        };
+    <!-- Col 3: Done -->
+    <div class="col col-done">
+        <div class="col-header">
+            <div class="col-title-area">
+                <div class="col-icon"><i class="ph ph-check-circle"></i></div>
+                <div>
+                    <div class="col-title">تم التسليم</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="col-badge" id="badge-done">0</span>
+                <button class="clear-btn" onclick="clearDone()">مسح الكل</button>
+            </div>
+        </div>
+        <div class="col-body" id="col-done">
+            <div class="empty-state" id="empty-done">
+                <i class="ph ph-check-circle"></i>
+                <p>لا توجد طلبات مكتملة بعد</p>
+            </div>
+        </div>
+    </div>
 
-        // تهيئة Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.database();
-        const ordersRef = db.ref('active_orders');
+</div>
 
-        let isSystemStarted = false;
-        let isInitialLoad = true;
-        let activeOrdersCount = 0;
+<script>
+// ==================== Firebase ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyCT0yusx3CtOFyAmDWTvXKSS4IKy1d-gU4",
+    authDomain: "baraka-a.firebaseapp.com",
+    databaseURL: "https://baraka-a-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "baraka-a",
+    storageBucket: "baraka-a.firebasestorage.app",
+    messagingSenderId: "729831140727",
+    appId: "1:729831140727:web:2d291397177b9b6f9c8572"
+};
 
-        // دالة بدء النظام (تفعيل الصوت)
-        function startSystem() {
-            document.getElementById('audio-unlock').style.display = 'none';
-            const sound = document.getElementById('alert-sound');
-            sound.volume = 0;
-            sound.play().then(() => {
-                sound.pause();
-                sound.currentTime = 0;
-                sound.volume = 1;
-            }).catch(e => console.log(e));
-            
-            isSystemStarted = true;
-            listenForOrders();
-        }
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const ordersRef = db.ref('active_orders');
 
-        // الاستماع للطلبات من Firebase في الوقت الفعلي
-        function listenForOrders() {
-            document.getElementById('connection-status').innerText = 'متصل (Live)';
-            document.getElementById('connection-status').className = 'bg-green-400 text-green-900 text-xs font-bold px-2 py-1 rounded-full';
+// ==================== State ====================
+let isSystemStarted = false;
+let isInitialLoad = true;
 
-            ordersRef.on('child_added', (snapshot) => {
-                const orderId = snapshot.key;
-                const orderData = snapshot.val();
-                
-                renderOrder(orderId, orderData);
-                
-                // تشغيل التنبيه فقط للطلبات الجديدة وليس وقت تحميل الصفحة لأول مرة
-                if (!isInitialLoad && isSystemStarted) {
-                    playSound();
-                }
-            });
+// Local state: track all orders and their column
+// columns: 'preparing' | 'driver' | 'done'
+const localOrders = {}; // { orderId: { order, column, arrivedAt } }
 
-            ordersRef.on('child_removed', (snapshot) => {
-                const orderId = snapshot.key;
-                const element = document.getElementById(`order-${orderId}`);
-                if (element) {
-                    element.remove();
-                    updateCount(-1);
-                }
-            });
+// ==================== Clock ====================
+function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+        now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
 
-            setTimeout(() => { isInitialLoad = false; }, 2000);
-        }
+// ==================== Elapsed timers ====================
+function formatElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    if (h > 0) return `${h}س ${m % 60}د`;
+    if (m > 0) return `${m}د ${s % 60}ث`;
+    return `${s}ث`;
+}
 
-        function playSound() {
-            const sound = document.getElementById('alert-sound');
-            sound.currentTime = 0;
-            sound.play().catch(e => console.log("الصوت محظور من المتصفح", e));
-        }
+setInterval(() => {
+    Object.entries(localOrders).forEach(([id, info]) => {
+        const el = document.getElementById(`timer-${id}`);
+        if (!el) return;
+        const elapsed = Date.now() - info.arrivedAt;
+        const mins = elapsed / 60000;
+        el.textContent = formatElapsed(elapsed);
+        el.className = 'elapsed-timer';
+        if (mins < 10) el.classList.add('timer-ok');
+        else if (mins < 20) el.classList.add('timer-warn');
+        else el.classList.add('timer-late');
+    });
+}, 1000);
 
-        function updateCount(change) {
-            activeOrdersCount += change;
-            document.getElementById('active-count').innerText = activeOrdersCount;
-        }
+// ==================== Sound Settings ====================
+let soundSettings = {
+    url: 'https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg',
+    duration: 0,   // 0 = full
+    volume: 1.0
+};
 
-        // رسم كارت الطلب على الشاشة
-        function renderOrder(orderId, order) {
-            updateCount(1);
-            const container = document.getElementById('orders-container');
-            
-            let itemsHtml = '';
-            order.items.forEach(item => {
-                itemsHtml += `
-                    <div class="flex justify-between border-b border-gray-100 py-2 text-sm">
-                        <div class="flex-1">
-                            <span class="font-bold text-gray-800">${item.qty}x ${item.name}</span>
-                            ${item.details ? `<div class="text-xs text-gray-500 mt-0.5">${item.details}</div>` : ''}
-                        </div>
-                        <div class="font-bold text-red-600 mr-4">${item.price.toFixed(3)}</div>
-                    </div>`;
-            });
+let soundStopTimer = null;
 
-            // تحديد شكل الكارت بناءً على التوصيل أو الاستلام
-            let typeBadge = '';
-            let locationHtml = '';
-            
-            if(order.orderType === 'delivery') {
-                typeBadge = '<span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded"><i class="ph ph-moped"></i> توصيل</span>';
-                locationHtml = `<div class="bg-blue-50 p-2 rounded text-blue-900 mt-2 text-xs border border-blue-200">
-                    <p class="font-bold mb-1"><i class="ph ph-map-pin"></i> عنوان التوصيل:</p>
-                    <p>${order.address}</p>
-                </div>`;
-            } else {
-                typeBadge = '<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded"><i class="ph ph-storefront"></i> استلام من الفرع</span>';
-                locationHtml = `<p><i class="ph ph-storefront text-gray-400"></i> ${order.branch}</p>`;
-            }
+function playSound() {
+    if (soundStopTimer) { clearTimeout(soundStopTimer); soundStopTimer = null; }
+    const s = document.getElementById('alert-sound');
+    s.src = soundSettings.url;
+    s.volume = soundSettings.volume;
+    s.currentTime = 0;
+    s.play().catch(() => {});
+    if (soundSettings.duration > 0) {
+        soundStopTimer = setTimeout(() => {
+            s.pause();
+            s.currentTime = 0;
+        }, soundSettings.duration * 1000);
+    }
+}
 
-            const cardHtml = `
-                <div id="order-${orderId}" class="order-card min-w-[320px] w-[320px] bg-white rounded-2xl shadow-lg border-t-8 ${order.orderType === 'delivery' ? 'border-blue-600' : 'border-red-600'} flex flex-col max-h-full">
-                    <div class="p-4 bg-gray-50 border-b border-gray-200 rounded-t-xl flex justify-between items-start">
-                        <div>
-                            <h3 class="font-black text-lg text-gray-800">#${orderId.substring(orderId.length - 4)}</h3>
-                            <p class="text-xs text-gray-500">${order.date}</p>
-                        </div>
+function openSoundModal() {
+    document.getElementById('sound-select').value = soundSettings.url;
+    if (!document.querySelector(`#sound-select option[value="${soundSettings.url}"]`)) {
+        document.getElementById('sound-select').value = 'custom';
+        document.getElementById('custom-url').style.display = 'block';
+        document.getElementById('custom-url').value = soundSettings.url;
+    }
+    const dur = soundSettings.duration;
+    document.getElementById('duration-range').value = dur;
+    document.getElementById('duration-val').textContent = dur === 0 ? 'كامل' : dur + 'ث';
+    const vol = Math.round(soundSettings.volume * 100);
+    document.getElementById('volume-range').value = vol;
+    document.getElementById('volume-val').textContent = vol + '%';
+    document.getElementById('sound-modal').classList.add('open');
+}
+
+function closeSoundModal() {
+    document.getElementById('sound-modal').classList.remove('open');
+}
+
+function testSoundSettings() {
+    const url = document.getElementById('sound-select').value === 'custom'
+        ? document.getElementById('custom-url').value
+        : document.getElementById('sound-select').value;
+    const dur = parseInt(document.getElementById('duration-range').value);
+    const vol = parseInt(document.getElementById('volume-range').value) / 100;
+
+    if (soundStopTimer) { clearTimeout(soundStopTimer); soundStopTimer = null; }
+    const s = document.getElementById('alert-sound');
+    s.src = url;
+    s.volume = vol;
+    s.currentTime = 0;
+    s.play().catch(() => {});
+    if (dur > 0) {
+        soundStopTimer = setTimeout(() => { s.pause(); s.currentTime = 0; }, dur * 1000);
+    }
+}
+
+function saveSoundSettings() {
+    const sel = document.getElementById('sound-select').value;
+    soundSettings.url = sel === 'custom' ? document.getElementById('custom-url').value : sel;
+    soundSettings.duration = parseInt(document.getElementById('duration-range').value);
+    soundSettings.volume = parseInt(document.getElementById('volume-range').value) / 100;
+    document.getElementById('alert-sound').src = soundSettings.url;
+    closeSoundModal();
+    showToast('✅ تم حفظ إعدادات الصوت');
+}
+
+// Range live update
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('duration-range').addEventListener('input', function() {
+        document.getElementById('duration-val').textContent = this.value == 0 ? 'كامل' : this.value + 'ث';
+    });
+    document.getElementById('volume-range').addEventListener('input', function() {
+        document.getElementById('volume-val').textContent = this.value + '%';
+    });
+    document.getElementById('sound-select').addEventListener('change', function() {
+        const cu = document.getElementById('custom-url');
+        cu.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+    // Close modal on backdrop click
+    document.getElementById('sound-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeSoundModal();
+    });
+});
+
+// ==================== Toast ====================
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ==================== Count badges ====================
+function refreshCounts() {
+    const counts = { preparing: 0, driver: 0, done: 0 };
+    Object.values(localOrders).forEach(info => { if (counts[info.column] !== undefined) counts[info.column]++; });
+    ['preparing', 'driver', 'done'].forEach(c => {
+        document.getElementById(`count-${c}`).textContent = counts[c];
+        document.getElementById(`badge-${c}`).textContent = counts[c];
+    });
+    // empty states
+    ['preparing', 'driver', 'done'].forEach(c => {
+        const empty = document.getElementById(`empty-${c}`);
+        if (empty) empty.style.display = counts[c] > 0 ? 'none' : 'flex';
+    });
+}
+
+// ==================== Render card ====================
+function buildCard(orderId, order, column) {
+    const shortId = orderId.substring(orderId.length - 4).toUpperCase();
+    const isDelivery = order.orderType === 'delivery';
+    const isDone = column === 'done';
+    const isDriver = column === 'driver';
+
+    const topBarClass = isDone ? 'bar-done' : (isDelivery ? 'bar-delivery' : 'bar-pickup');
+    const typeBadge = isDelivery
+        ? `<span class="order-type-badge badge-delivery"><i class="ph ph-moped"></i> توصيل</span>`
+        : `<span class="order-type-badge badge-pickup"><i class="ph ph-storefront"></i> استلام</span>`;
+
+    let locationHtml = '';
+    if (isDelivery) {
+        locationHtml = `<div class="address-box"><i class="ph ph-map-pin"></i> ${order.address || '—'}</div>`;
+    } else {
+        locationHtml = `<div class="info-row"><i class="ph ph-storefront"></i><span class="info-val">${order.branch || '—'}</span></div>`;
+    }
+
+    let itemsHtml = '';
+    (order.items || []).forEach(item => {
+        itemsHtml += `
+            <div class="item-row">
+                <div class="item-qty">${item.qty}</div>
+                <div class="item-name">
+                    ${item.name}
+                    ${item.details ? `<div class="item-details">${item.details}</div>` : ''}
+                </div>
+                <div class="item-price">${parseFloat(item.price || 0).toFixed(3)}</div>
+            </div>`;
+    });
+
+    // Action buttons based on column
+    let actionsHtml = `
+        <button class="act-btn btn-print" onclick='printOrder(${JSON.stringify(order)})'>
+            <i class="ph ph-printer"></i> طباعة
+        </button>`;
+
+    if (column === 'preparing') {
+        const nextLabel = isDelivery ? 'خرج للتوصيل' : 'جاهز للاستلام';
+        const btnClass = isDelivery ? 'btn-next-delivery' : 'btn-next-pickup';
+        const nextIcon = isDelivery ? 'ph-moped' : 'ph-check-square';
+        actionsHtml += `
+            <button class="act-btn ${btnClass}" onclick="moveToDriver('${orderId}')">
+                <i class="ph ${nextIcon}"></i> ${nextLabel}
+            </button>`;
+    } else if (column === 'driver') {
+        actionsHtml += `
+            <button class="act-btn btn-done" onclick="moveToDone('${orderId}')">
+                <i class="ph ph-check-circle"></i> تم التسليم
+            </button>`;
+    } else {
+        // done column
+        actionsHtml += `
+            <button class="act-btn btn-delete" onclick="deleteOrder('${orderId}')" title="حذف">
+                <i class="ph ph-trash"></i>
+            </button>`;
+    }
+
+    return `
+        <div id="order-${orderId}" class="order-card ${isDone ? 'done-card' : ''}">
+            <div class="card-top-bar ${topBarClass}"></div>
+            <div class="card-header">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="order-id">#${shortId}</span>
                         ${typeBadge}
                     </div>
-                    
-                    <div class="p-4 border-b border-gray-100 text-sm space-y-1">
-                        <p><i class="ph ph-user text-gray-400"></i> <span class="font-bold">${order.customerName}</span></p>
-                        <p><i class="ph ph-phone text-gray-400"></i> ${order.customerPhone}</p>
-                        <p><i class="ph ph-clock text-gray-400"></i> الموعد: <span class="font-bold ${order.orderType === 'delivery' ? 'text-blue-600' : 'text-red-600'}">${order.pickupTime}</span></p>
-                        ${locationHtml}
-                        ${order.notes ? `<div class="bg-yellow-50 p-2 rounded text-yellow-800 mt-2 text-xs border border-yellow-200"><i class="ph ph-warning-circle"></i> ملاحظات: ${order.notes}</div>` : ''}
-                    </div>
-
-                    <div class="p-4 flex-1 overflow-y-auto hide-scrollbar bg-white">
-                        ${itemsHtml}
-                    </div>
-
-                    <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-xl space-y-3">
-                        <div class="flex justify-between items-center text-lg">
-                            <span class="font-bold text-gray-600">الإجمالي:</span>
-                            <span class="font-black text-red-700">${parseFloat(order.total).toFixed(3)} ر.ع</span>
-                        </div>
-                        
-                        <div class="flex gap-2">
-                            <button onclick='printOrder(${JSON.stringify(order)})' class="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg font-bold flex justify-center items-center gap-2 transition">
-                                <i class="ph ph-printer text-xl"></i> طباعة
-                            </button>
-                            <button onclick="markAsCompleted('${orderId}')" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold flex justify-center items-center gap-2 transition">
-                                <i class="ph ph-check text-xl"></i> ${order.orderType === 'delivery' ? 'خرج للتوصيل' : 'تم التسليم'}
-                            </button>
-                        </div>
-                    </div>
+                    <span class="elapsed-timer timer-ok" id="timer-${orderId}">0ث</span>
                 </div>
-            `;
-            
-            // إضافة الطلب في البداية
-            container.insertAdjacentHTML('afterbegin', cardHtml);
+                <span class="order-time-badge">${order.date || ''}</span>
+            </div>
+            <div class="card-info">
+                <div class="info-row"><i class="ph ph-user"></i><span class="info-val">${order.customerName || '—'}</span></div>
+                <div class="info-row"><i class="ph ph-phone"></i><span>${order.customerPhone || '—'}</span></div>
+                <div class="info-row"><i class="ph ph-clock"></i><span>الموعد: </span><span class="info-val highlight">${order.pickupTime || '—'}</span></div>
+                ${locationHtml}
+                ${order.notes ? `<div class="notes-box"><i class="ph ph-warning-circle"></i> ${order.notes}</div>` : ''}
+            </div>
+            <div class="card-items">${itemsHtml}</div>
+            <div class="card-footer">
+                <div class="total-area">
+                    <span class="total-label">الإجمالي</span>
+                    <span class="total-amount">${parseFloat(order.total || 0).toFixed(3)} ر.ع</span>
+                </div>
+                <div class="card-actions">${actionsHtml}</div>
+            </div>
+        </div>`;
+}
+
+function renderOrderInColumn(orderId, order, column, prepend = true) {
+    const colEl = document.getElementById(`col-${column}`);
+    const existing = document.getElementById(`order-${orderId}`);
+    if (existing) existing.remove();
+
+    const html = buildCard(orderId, order, column);
+    if (prepend) {
+        colEl.insertAdjacentHTML('afterbegin', html);
+    } else {
+        colEl.insertAdjacentHTML('beforeend', html);
+    }
+    refreshCounts();
+}
+
+// ==================== Actions ====================
+function moveToDriver(orderId) {
+    const info = localOrders[orderId];
+    if (!info) return;
+    info.column = 'driver';
+    renderOrderInColumn(orderId, info.order, 'driver');
+    showToast(`✅ الطلب #${orderId.slice(-4).toUpperCase()} خرج للتوصيل / جاهز`);
+}
+
+function moveToDone(orderId) {
+    const info = localOrders[orderId];
+    if (!info) return;
+    info.column = 'done';
+    renderOrderInColumn(orderId, info.order, 'done');
+    // Remove from Firebase when done
+    ordersRef.child(orderId).remove().catch(() => {});
+    showToast(`✅ تم تسليم الطلب #${orderId.slice(-4).toUpperCase()}`);
+}
+
+function deleteOrder(orderId) {
+    const el = document.getElementById(`order-${orderId}`);
+    if (el) el.remove();
+    delete localOrders[orderId];
+    ordersRef.child(orderId).remove().catch(() => {});
+    refreshCounts();
+    showToast('🗑 تم حذف الطلب');
+}
+
+function clearDone() {
+    if (!confirm('مسح كل الطلبات المكتملة؟')) return;
+    Object.entries(localOrders).forEach(([id, info]) => {
+        if (info.column === 'done') {
+            const el = document.getElementById(`order-${id}`);
+            if (el) el.remove();
+            delete localOrders[id];
         }
+    });
+    refreshCounts();
+    showToast('🗑 تم مسح الطلبات المكتملة');
+}
 
-        // دالة الطباعة وتجهيز الفاتورة
-        function printOrder(order) {
-            const printWindow = window.open('', '_blank', 'width=400,height=600');
-            
-            let itemsHtml = '';
-            order.items.forEach(i => {
-                itemsHtml += `
-                    <tr style="border-bottom: 1px dashed #000;">
-                        <td style="padding: 5px 0;">${i.name}<br>
-                            ${i.details ? `<small>${i.details}</small>` : ''}
-                        </td>
-                        <td style="text-align: center;">${i.qty}</td>
-                        <td style="text-align: left;">${i.price.toFixed(3)}</td>
-                    </tr>
-                `;
-            });
+// ==================== Firebase listeners ====================
+function listenForOrders() {
+    const status = document.getElementById('connection-status');
+    status.className = 'status-badge status-live';
+    status.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span> متصل Live';
 
-            const orderTypeLabel = order.orderType === 'delivery' ? 'طلب توصيل (Delivery)' : 'طلب استلام من الفرع (Pickup)';
-            const locationDetails = order.orderType === 'delivery' 
-                ? `<b>عنوان التوصيل:</b><br> ${order.address}<br>` 
-                : `<b>فرع الاستلام:</b> ${order.branch}<br>`;
+    ordersRef.on('child_added', (snapshot) => {
+        const orderId = snapshot.key;
+        const order = snapshot.val();
 
-            printWindow.document.write(`
-                <html lang="ar" dir="rtl">
-                <head>
-                    <title>طباعة الفاتورة</title>
-                    <style>
-                        body { font-family: 'Cairo', sans-serif; width: 80mm; margin: 0 auto; padding: 10px; font-size: 14px; color: #000; }
-                        .text-center { text-align: center; }
-                        .bold { font-weight: bold; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                        th, td { font-size: 13px; padding-top: 3px; padding-bottom: 3px; }
-                        .total { font-size: 16px; margin-top: 15px; border-top: 2px double #000; padding-top: 5px; }
-                        .badge { display: inline-block; padding: 3px 8px; border: 1px solid #000; border-radius: 5px; margin-top: 5px; font-weight: bold; }
-                        @media print { @page { margin: 0; } body { margin: 0.5cm; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="text-center">
-                        <h3 style="margin:0; font-size: 18px;">مطعم البركة</h3>
-                        <div class="badge">${orderTypeLabel}</div>
-                        <p style="font-size:11px; margin:8px 0;">${order.date}</p>
-                    </div>
-                    <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-                    <div style="font-size: 13px; line-height: 1.6;">
-                        <b>العميل:</b> ${order.customerName}<br>
-                        <b>الهاتف:</b> ${order.customerPhone}<br>
-                        ${locationDetails}
-                        <b>الوقت المطلوب:</b> ${order.pickupTime}<br>
-                        ${order.notes ? `<b>ملاحظات إضافية:</b> ${order.notes}<br>` : ''}
-                    </div>
-                    <table style="margin-top: 15px;">
-                        <thead>
-                            <tr style="border-bottom: 2px solid #000;">
-                                <th style="text-align: right;">الصنف</th>
-                                <th style="width: 40px; text-align: center;">العدد</th>
-                                <th style="text-align: left;">السعر</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemsHtml}
-                        </tbody>
-                    </table>
-                    <div class="total bold">
-                        <span>الإجمالي:</span>
-                        <span style="float: left;">${parseFloat(order.total).toFixed(3)} ر.ع</span>
-                    </div>
-                    <div class="text-center" style="margin-top: 20px; font-size: 11px;">شكراً لطلبكم ❤️</div>
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                            setTimeout(function() { window.close(); }, 500);
-                        }
-                    <\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+        if (!localOrders[orderId]) {
+            localOrders[orderId] = { order, column: 'preparing', arrivedAt: Date.now() };
+            renderOrderInColumn(orderId, order, 'preparing');
+            if (!isInitialLoad && isSystemStarted) playSound();
         }
+    });
 
-        // إزالة الطلب بعد التسليم
-        function markAsCompleted(orderId) {
-            ordersRef.child(orderId).remove()
-                .catch(e => alert("حدث خطأ: " + e));
+    ordersRef.on('child_removed', (snapshot) => {
+        // Only remove from preparing if still there (we handle driver→done ourselves)
+        const orderId = snapshot.key;
+        const info = localOrders[orderId];
+        if (info && info.column === 'preparing') {
+            const el = document.getElementById(`order-${orderId}`);
+            if (el) el.remove();
+            delete localOrders[orderId];
+            refreshCounts();
         }
+    });
 
-        // اختبار الطباعة
-        function testPrint() {
-            printOrder({
-                date: new Date().toLocaleString('ar-EG'),
-                customerName: "تجربة طابعة", customerPhone: "00000000", orderType: "delivery", address: "الشارع: الرئيسي، مبنى: 15، الدور: 2", pickupTime: "الآن", notes: "بدون شطة", total: 0,
-                items: [{name: "وجبة تجربة", qty: 1, price: 0, details: "تجربة النظام"}]
-            });
-        }
-    </script>
+    setTimeout(() => { isInitialLoad = false; }, 2500);
+}
+
+// ==================== Print ====================
+function printOrder(order) {
+    const w = window.open('', '_blank', 'width=420,height=650');
+    let itemsHtml = (order.items || []).map(i => `
+        <tr>
+            <td style="padding:5px 0;border-bottom:1px dashed #ccc;">${i.name}${i.details ? `<br><small style="color:#666">${i.details}</small>` : ''}</td>
+            <td style="text-align:center;border-bottom:1px dashed #ccc;">${i.qty}</td>
+            <td style="text-align:left;border-bottom:1px dashed #ccc;">${parseFloat(i.price || 0).toFixed(3)}</td>
+        </tr>`).join('');
+
+    const typeLabel = order.orderType === 'delivery' ? '🛵 طلب توصيل' : '🏪 استلام من الفرع';
+    const locDetail = order.orderType === 'delivery'
+        ? `<b>عنوان التوصيل:</b><br>${order.address}`
+        : `<b>فرع الاستلام:</b> ${order.branch}`;
+
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+        <style>
+            body{font-family:'Cairo',sans-serif;width:80mm;margin:0 auto;padding:10px;font-size:14px;color:#000;}
+            .center{text-align:center;}
+            table{width:100%;border-collapse:collapse;margin-top:10px;}
+            th{text-align:right;border-bottom:2px solid #000;padding:4px 0;}
+            .total{font-size:17px;font-weight:900;border-top:2px double #000;padding-top:8px;margin-top:12px;display:flex;justify-content:space-between;}
+            @media print{@page{margin:0;}body{margin:.5cm;}}
+        </style></head><body>
+        <div class="center">
+            <h3 style="margin:0;font-size:20px;font-weight:900;">مطعم البركة</h3>
+            <div style="font-size:13px;margin:4px 0;">${typeLabel}</div>
+            <div style="font-size:11px;color:#555;">${order.date || ''}</div>
+        </div>
+        <hr style="border-top:1px dashed #000;margin:10px 0;">
+        <div style="font-size:13px;line-height:1.8;">
+            <b>العميل:</b> ${order.customerName}<br>
+            <b>الهاتف:</b> ${order.customerPhone}<br>
+            ${locDetail}<br>
+            <b>الموعد:</b> ${order.pickupTime}<br>
+            ${order.notes ? `<b>ملاحظات:</b> ${order.notes}<br>` : ''}
+        </div>
+        <table><thead><tr>
+            <th>الصنف</th><th style="text-align:center;width:40px;">ك</th><th style="text-align:left;">السعر</th>
+        </tr></thead><tbody>${itemsHtml}</tbody></table>
+        <div class="total"><span>الإجمالي:</span><span>${parseFloat(order.total || 0).toFixed(3)} ر.ع</span></div>
+        <div class="center" style="margin-top:20px;font-size:12px;color:#555;">شكراً لطلبكم ❤️</div>
+        <script>window.onload=function(){window.print();setTimeout(function(){window.close();},600);}<\/script>
+    </body></html>`);
+    w.document.close();
+}
+
+function testPrint() {
+    printOrder({
+        date: new Date().toLocaleString('ar-EG'),
+        customerName: 'تجربة طابعة', customerPhone: '00000000',
+        orderType: 'delivery', address: 'الشارع الرئيسي، مبنى 15، الدور 2',
+        pickupTime: 'الآن', notes: 'بدون شطة', total: 1.5,
+        items: [{ name: 'وجبة تجربة', qty: 1, price: 1.5, details: 'تجربة النظام' }]
+    });
+}
+
+// ==================== Start ====================
+function startSystem() {
+    document.getElementById('audio-unlock').style.display = 'none';
+    const s = document.getElementById('alert-sound');
+    s.volume = 0;
+    s.play().then(() => { s.pause(); s.currentTime = 0; s.volume = 1; }).catch(() => {});
+    isSystemStarted = true;
+    listenForOrders();
+    refreshCounts();
+}
+</script>
 </body>
 </html>
